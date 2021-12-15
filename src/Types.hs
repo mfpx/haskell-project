@@ -1,10 +1,11 @@
 {-# LANGUAGE DeriveGeneric #-}
 
 module Types
-  ( Raw (..),
+  ( RawUser (..),
     User (..),
     Users (..),
     UserMetrics (..),
+    RawTweets (..),
     Tweet (..),
     Tweets (..),
     TweetMetrics (..),
@@ -14,7 +15,9 @@ where
 import Data.Aeson
 import GHC.Generics (Generic)
 
-data Raw = Raw
+-- ##########################################################################################################################################
+
+newtype RawUser = RawUser
   { raw_user_data :: User
   --raw_tweet_data :: Maybe Tweet
   }
@@ -24,7 +27,7 @@ data User = User
   { user_id :: String,
     username :: String,
     name :: String,
-    verified :: Maybe Bool,
+    verified :: Maybe String,
     location :: Maybe String,
     created_at :: String,
     bio :: Maybe String,
@@ -43,15 +46,21 @@ data UserMetrics = UserMetrics
 newtype Users = Users
   { users :: [User]
   }
-  deriving (Show, Generic)
+  deriving (Eq, Show, Generic)
+
+-- ##########################################################################################################################################
+
+newtype RawTweets = RawTweets
+  { raw_tweet_data :: Tweet
+  }
+  deriving (Eq, Show, Generic)
 
 data Tweet = Tweet
-  { tweet_id :: Int,
-    fk_user_id :: Int,
-    tweeted_at :: String,
-    contents :: String,
-    tweet_metrics :: Maybe TweetMetrics,
-    tweet_url :: Maybe String
+  { tweet_id :: String,
+    fk_user_id :: String,
+    tweeted_at :: Maybe String,
+    contents :: Maybe String,
+    tweet_metrics :: TweetMetrics
   }
   deriving (Eq, Show, Generic)
 
@@ -66,4 +75,6 @@ data TweetMetrics = TweetMetrics
 newtype Tweets = Tweets
   { tweets :: [Tweet]
   }
-  deriving (Show, Generic)
+  deriving (Eq, Show, Generic)
+
+-- ##########################################################################################################################################

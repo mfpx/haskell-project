@@ -2,9 +2,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Parse
-  ( parseData,
+  ( parseDataUser,
     parseUser,
     parseUserMetrics,
+    parseDataTweet,
+    parseTweet,
+    parseTweets,
+    parseTweetMetrics,
   )
 where
 
@@ -20,34 +24,47 @@ import Distribution.Simple (License (BSD2))
 import GHC.Generics
 import Types
 
-renameFields :: [Char] -> [Char]
-renameFields "raw_user_data" = "data"
-renameFields "user_id" = "id"
-renameFields "bio" = "description"
-renameFields "user_metrics" = "public_metrics"
-renameFields "tweet_total" = "tweet_count"
-renameFields "like_total" = "listed_count"
-renameFields other = other
+-- ##########################################################################################################################################
 
-customOptions :: Options
-customOptions =
+renameFieldsUser :: [Char] -> [Char]
+renameFieldsUser "raw_user_data" = "data"
+renameFieldsUser "user_id" = "id"
+renameFieldsUser "bio" = "description"
+renameFieldsUser "user_metrics" = "public_metrics"
+renameFieldsUser "tweet_total" = "tweet_count"
+renameFieldsUser "like_total" = "listed_count"
+renameFieldsUser other = other
+
+customOptionsUser :: Options
+customOptionsUser =
   defaultOptions
-    { fieldLabelModifier = renameFields
+    { fieldLabelModifier = renameFieldsUser
     }
 
-instance FromJSON Raw where
-  parseJSON = JSON.genericParseJSON customOptions
+instance FromJSON RawUser where
+  parseJSON = JSON.genericParseJSON customOptionsUser
 
-parseData :: L8.ByteString -> Either String Raw
-parseData json = eitherDecode json :: Either String Raw
+parseDataUser :: L8.ByteString -> Either String RawUser
+parseDataUser json = eitherDecode json :: Either String RawUser
 
-{-
-instance ToJSON User where
-  toJSON = JSON.genericToJSON $ jsonOptions "Raw"
--}
 instance FromJSON User where
-  parseJSON = JSON.genericParseJSON customOptions
+  parseJSON = JSON.genericParseJSON customOptionsUser
 
+parseUser :: L8.ByteString -> Either String User
+parseUser json = eitherDecode json :: Either String User
+
+instance FromJSON UserMetrics where
+  parseJSON = withObject "public_metrics" $ \b ->
+    UserMetrics <$> b .: "following_count"
+      <*> b .: "tweet_count"
+      <*> b .: "listed_count"
+      <*> b .: "followers_count"
+
+parseUserMetrics :: L8.ByteString -> Either String UserMetrics
+parseUserMetrics json = eitherDecode json :: Either String UserMetrics
+
+-- ##########################################################################################################################################
+-- Optional Custom implementation
 {-
 instance FromJSON User where
   parseJSON = withObject "User" $ \b ->
@@ -60,9 +77,6 @@ instance FromJSON User where
       <*> b .: "description"
       <*> b .: "user_url"
 -}
-parseUser :: L8.ByteString -> Either String User
-parseUser json = eitherDecode json :: Either String User
-
 {-
 instance FromJSON UserMetrics where
   parseJSON = JSON.withObject "public_metrics" $ \o -> do
@@ -76,21 +90,64 @@ instance FromJSON UserMetrics where
         followers_count = read followers
     pure UserMetrics {following_count, tweet_count, listed_count, followers_count}
 -}
-
---instance FromJSON UserMetrics where
---parseJSON = JSON.genericParseJSON customOptions
-
-instance FromJSON UserMetrics where
-  parseJSON = withObject "public_metrics" $ \b ->
-    UserMetrics <$> b .: "following_count"
-      <*> b .: "tweet_count"
-      <*> b .: "listed_count"
-      <*> b .: "followers_count"
-
-parseUserMetrics :: L8.ByteString -> Either String UserMetrics
-parseUserMetrics json = eitherDecode json :: Either String UserMetrics
-
 jsonOptions :: String -> JSON.Options
 jsonOptions prefix =
   let prefixLength = length prefix
-   in JSON.defaultOptions {JSON.fieldLabelModifier = drop prefixLength >>> renameFields}
+   in JSON.defaultOptions {JSON.fieldLabelModifier = drop prefixLength >>> renameFieldsUser}
+
+-- ##########################################################################################################################################
+
+renameFieldsRaw "raw_tweet_data" = "data"
+renameFieldsRaw "tweeted_at" = "created_at"
+renameFieldsRaw other = other
+
+customOptionsRaw :: Options
+customOptionsRaw =
+  defaultOptions
+    { fieldLabelModifier = renameFieldsRaw
+    }
+
+instance FromJSON RawTweets where
+  parseJSON = JSON.genericParseJSON customOptionsRaw
+
+parseDataTweet :: L8.ByteString -> Either String RawTweets
+parseDataTweet json = eitherDecode json :: Either String RawTweets
+
+renameFieldsTweet :: [Char] -> [Char]
+renameFieldsTweet "tweets" = "data"
+renameFieldsTweet "tweet_id" = "id"
+renameFieldsTweet "tweeted_at" = "created_at"
+renameFieldsTweet "fk_user_id" = "author_id"
+renameFieldsTweet "contents" = "text"
+renameFieldsTweet "tweet_metrics" = "public_metrics"
+renameFieldsTweet "retweets_count" = "retweet_count"
+renameFieldsTweet "quotes_count" = "quote_count"
+renameFieldsTweet "likes_count" = "like_count"
+renameFieldsTweet "replies_count" = "reply_count"
+renameFieldsTweet other = other
+
+customOptionsTweet :: Options
+customOptionsTweet =
+  defaultOptions
+    { fieldLabelModifier = renameFieldsTweet
+    }
+
+instance FromJSON Tweet where
+  parseJSON = JSON.genericParseJSON customOptionsTweet
+
+parseTweet :: L8.ByteString -> Either String Tweet
+parseTweet json = eitherDecode json :: Either String Tweet
+
+instance FromJSON Tweets where
+  parseJSON = JSON.genericParseJSON customOptionsTweet
+
+parseTweets :: L8.ByteString -> Either String Tweets
+parseTweets json = eitherDecode json :: Either String Tweets
+
+instance FromJSON TweetMetrics where
+  parseJSON = JSON.genericParseJSON customOptionsTweet
+
+parseTweetMetrics :: L8.ByteString -> Either String TweetMetrics
+parseTweetMetrics json = eitherDecode json :: Either String TweetMetrics
+
+-- ##########################################################################################################################################

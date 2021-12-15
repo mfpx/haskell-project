@@ -25,74 +25,68 @@ main = do
   putStrLn "  (1) Get user information       "
   putStrLn "  (2) Search tweets (e.g., relating to crypto)  "
   putStrLn "  (3) Get tweet by ID            "
-  putStrLn "  (4) Get user's recent tweets   "
-  putStrLn "  (5) Quit                       "
+  putStrLn "  (4) Quit                       "
   putStrLn "---------------------------------"
+  conn <- initDB
   hSetBuffering stdout NoBuffering
   putStr "Choose an option > "
   option <- readLn :: IO Int
-
   case option of
     1 -> do
       putStr "Twitter username: "
       hFlush stdout
       input <- getLine
+      print "Downloading..."
       json <- getUser input
-      --print (dynTypeRep (toDyn json))
-      case (parseData json) of
+      --print json
+      print "Parsing..."
+      case (parseDataUser json) of
         Left err -> print err
         Right result -> do
-          --print (dynTypeRep (toDyn result))
           let output = raw_user_data result
-          --print (dynTypeRep (toDyn output))
-          --print output
-          --print $ username output
-
           let metrics = user_metrics output
-          --print (dynTypeRep (toDyn metrics))
           let output_metrics = UserMetrics (following_count metrics) (tweet_count metrics) (listed_count metrics) (followers_count metrics)
-          --print (dynTypeRep (toDyn output_metrics))
           let output_user = User (user_id output) (username output) (name output) (verified output) (location output) (created_at output) (bio output) output_metrics
-          -- print (dynTypeRep (toDyn output_user))
           print output_user
-          --print $ username output_user
-
-          {-
-          --myUser <- parseUser json
-          --print myUser
-          --print (dynTypeRep (toDyn myUser))
-          print $ parseUser json
-          --myMetrics <- parseUserMetrics json
-          --print myMetrics
-          --print (dynTypeRep (toDyn myMetrics))
-          print $ parseMetrics json
-          -}
+          print "Saving on DB..."
+          saveUser conn output_user
           main
     2 -> do
       putStr "Search term: "
       hFlush stdout
       input <- getLine
-      let query = packStr'' input
-      json <- searchTweets query
-      print json
-      main
+      print "Downloading..."
+      json <- searchTweets input
+      print "Parsing..."
+      case (parseTweets json) of
+        Left err -> print err
+        Right result -> do
+          let output_tweets = tweets result
+          print $ output_tweets !! 1
+          let l = length output_tweets
+          let loop = [1 .. l]
+          print loop
+          print "Saving on DB..."
+          -- call saveTweets 10 times Save on DB in a for loop
+          saveTweet conn $ output_tweets !! 1
+          main
     3 -> do
       putStr "Tweet ID: "
       hFlush stdout
       input <- getLine
+      print "Downloading..."
       json <- getTweet input
       print json
-      main
+      print "Parsing..."
+      case (parseDataTweet json) of
+        Left err -> print err
+        Right result -> do
+          let output_tweet = raw_tweet_data result
+          print output_tweet
+          print "Saving on DB..."
+          saveTweet conn output_tweet
+          main
     4 -> do
-      putStr "Twitter username: "
-      hFlush stdout
-      input <- getLine
-      let user = packStr'' input
-      json <- getRecentTweets user
-      print json
-
-      main
-    5 -> do
       exitSuccess
     _ -> do
       exitFailure
