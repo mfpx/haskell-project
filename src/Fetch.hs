@@ -19,29 +19,29 @@ packStr'' :: String -> BS.ByteString
 packStr'' = encodeUtf8 . DT.pack
 
 -- Returns True if string contains only numbers and False if not
-isNumeric :: [Char] -> Bool
-isNumeric [] = True
-isNumeric (a : as) = if (isDigit a) then isNumeric as else False
+isNumeric :: String -> Bool
+isNumeric = foldr ((&&) . isDigit) True
 
 --Returns False if string contains a symbol which is not an _. Based on valid twitter username rules
-containsSymbol [] = False
-containsSymbol (a : as) = if not (isDigit a) && not (isLetter a) && a /= '_' then True else containsSymbol as
+containsSymbol = foldr
+      (\ a -> (||) (not (isDigit a) && not (isLetter a) && a /= '_'))
+      False
 
 bearerToken = "Bearer AAAAAAAAAAAAAAAAAAAAAKqQWAEAAAAADjJIsHNmXPfaCE8vNJkEZbL8z%2Fw%3DeoJJbBerLBYwlS9TeLEQxfK9XAlzZ801y7oHsuU0jAzInIBCnI"
 
 -- ##########################################################################################################################################
-searchTweets :: [Char] -> IO S8.ByteString
-searchTweets query = do
+searchTweets :: String -> IO S8.ByteString
+searchTweets query =
   case query of
     "" -> do
       Prelude.putStrLn "Please enter a search term"
       exitFailure
       return "Error"
-    otherwise -> do
+    _ -> do
       let first = Prelude.head query
       let first' = case first of
             '#' -> "%23"
-            otherwise -> [first]
+            _ -> [first]
       let urlQuery = first' ++ Prelude.tail query
       let filters = " lang:en &expansions=author_id&tweet.fields=public_metrics,created_at" --Tweets in English. Expansions show more information in results.
       let extension = urlQuery ++ filters
@@ -59,9 +59,9 @@ searchTweets query = do
       return $ getResponseBody response
 
 -- ##########################################################################################################################################
-getTweet :: [Char] -> IO S8.ByteString
+getTweet :: String -> IO S8.ByteString
 getTweet tweetId = do
-  let tweetId' = if (isNumeric tweetId) then tweetId else "Not numeric"
+  let tweetId' = if isNumeric tweetId then tweetId else "Not numeric"
   case tweetId' of
     "" -> do
       print "Please enter a tweet ID"
@@ -70,9 +70,7 @@ getTweet tweetId = do
       print "Please enter a numeric tweet ID"
       exitFailure
       return "Error"
-    otherwise -> do
-      --let filters = "?tweet.fields=author_id,created_at,public_metrics" --Tweets in English. Expansions show more information in results.
-      --let extension = tweetId ++ filters
+    _ -> do
       request' <- parseRequest $ "GET https://api.twitter.com/2/tweets/" ++ tweetId
       let request =
             addRequestHeader "Authorization" bearerToken $
@@ -87,12 +85,12 @@ getTweet tweetId = do
       return $ getResponseBody response
 
 -- ##########################################################################################################################################
-getUser :: [Char] -> IO S8.ByteString
+getUser :: String -> IO S8.ByteString
 getUser username = do
   let length' = Prelude.length username
   let username'
         | containsSymbol username = "Invalid username"
-        | (length' > 15 || length' < 4) = "Invalid length"
+        | length' > 15 || length' < 4 = "Invalid length"
         | otherwise = username
   --Validate user input
   case username' of
@@ -104,7 +102,7 @@ getUser username = do
       Prelude.putStrLn "Please enter a useraname between 4 and 15 characters"
       exitFailure
       return "Error"
-    otherwise -> do
+    _ -> do
       Prelude.putStrLn "Valid username"
       request' <- parseRequest $ "GET https://api.twitter.com/2/users/by/username/" ++ username
 
@@ -125,16 +123,16 @@ getUser username = do
           Prelude.putStrLn "Please ensure you are connected to the internet"
           return "Error"
         Right response -> do
-          S8.putStrLn $ (getResponseBody response)
+          S8.putStrLn $ getResponseBody response
           --print $ getRequestQueryString request --debug only
           return $ getResponseBody response
 
-getUserByID :: [Char] -> IO S8.ByteString
+getUserByID :: String -> IO S8.ByteString
 getUserByID id = do
   let length' = Prelude.length id
   let id'
         | not(isNumeric id) = "Invalid user id"
-        | (length' > 20 || length' < 1) = "Invalid length"
+        | length' > 20 || length' < 1 = "Invalid length"
         | otherwise = id
   --Validate user input
   case id' of
@@ -146,7 +144,7 @@ getUserByID id = do
       Prelude.putStrLn "Please enter an id between 1 and 20 characters"
       exitFailure
       return "Error"
-    otherwise -> do
+    _ -> do
       --Prelude.putStrLn "Valid user id"
       request' <- parseRequest $ "GET https://api.twitter.com/2/users/" ++ id
 
@@ -166,9 +164,7 @@ getUserByID id = do
           print (e :: HttpException)
           Prelude.putStrLn "Please ensure you are connected to the internet"
           return "Error"
-        Right response -> do
-          --S8.putStrLn $ (getResponseBody response)
-          --print $ getRequestQueryString request --debug only
+        Right response ->
           return $ getResponseBody response
 
 -- ##########################################################################################################################################

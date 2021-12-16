@@ -43,7 +43,7 @@ main = do
       json <- getUser input
       --print json
       print "Parsing..."
-      case (parseDataUser json) of
+      case parseDataUser json of
         Left err -> print err
         Right result -> do
           let output = raw_user_data result
@@ -62,7 +62,7 @@ main = do
       json <- searchTweets input
       --print json
       print "Parsing..."
-      case (parseTweets json) of
+      case parseTweets json of
         Left err -> print err
         Right result -> do
           let output_tweets = tweets result
@@ -78,7 +78,7 @@ main = do
       json <- getTweet input
       --print json
       print "Parsing..."
-      case (parseDataTweet json) of
+      case parseDataTweet json of
         Left err -> print err
         Right result -> do
           let output_tweet = raw_tweet_data result
@@ -97,7 +97,7 @@ main = do
       print "Downloading..."
       json <- getUserByID input
       print "Parsing..."
-      case (parseDataUser json) of
+      case parseDataUser json of
         Left err -> print err
         Right result -> do
           let output = raw_user_data result
