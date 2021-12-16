@@ -31,8 +31,6 @@ renameFieldsUser "raw_user_data" = "data"
 renameFieldsUser "user_id" = "id"
 renameFieldsUser "bio" = "description"
 renameFieldsUser "user_metrics" = "public_metrics"
-renameFieldsUser "tweet_total" = "tweet_count"
-renameFieldsUser "like_total" = "listed_count"
 renameFieldsUser other = other
 
 customOptionsUser :: Options
@@ -57,7 +55,6 @@ instance FromJSON UserMetrics where
   parseJSON = withObject "public_metrics" $ \b ->
     UserMetrics <$> b .: "following_count"
       <*> b .: "tweet_count"
-      <*> b .: "listed_count"
       <*> b .: "followers_count"
 
 parseUserMetrics :: L8.ByteString -> Either String UserMetrics
@@ -82,13 +79,11 @@ instance FromJSON UserMetrics where
   parseJSON = JSON.withObject "public_metrics" $ \o -> do
     following <- o .: "following_count"
     tweet <- o .: "tweet_count"
-    listed <- o .: "listed_count"
     followers <- o .: "followers_count"
     let following_count = read following
         tweet_count = read tweet
-        listed_count = read listed
         followers_count = read followers
-    pure UserMetrics {following_count, tweet_count, listed_count, followers_count}
+    pure UserMetrics {following_count, tweet_count, followers_count}
 -}
 jsonOptions :: String -> JSON.Options
 jsonOptions prefix =
@@ -120,10 +115,6 @@ renameFieldsTweet "tweeted_at" = "created_at"
 renameFieldsTweet "fk_user_id" = "author_id"
 renameFieldsTweet "contents" = "text"
 renameFieldsTweet "tweet_metrics" = "public_metrics"
-renameFieldsTweet "retweets_count" = "retweet_count"
-renameFieldsTweet "quotes_count" = "quote_count"
-renameFieldsTweet "likes_count" = "like_count"
-renameFieldsTweet "replies_count" = "reply_count"
 renameFieldsTweet other = other
 
 customOptionsTweet :: Options

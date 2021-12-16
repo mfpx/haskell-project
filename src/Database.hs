@@ -1,22 +1,37 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database (initDB, saveUser, saveTweet, saveTweets) where
+module Database (initDB, saveUser, saveTweet, saveTweets, querySavedUsers, querySavedTweetsByUser) where
 
 import Control.Applicative
 import Data.Dynamic
+import qualified Data.Text as DT
 import Database.SQLite.Simple
 import Database.SQLite.Simple.FromRow
 import Database.SQLite.Simple.Internal
+import Database.SQLite.Simple.ToField
 import Database.SQLite.Simple.ToRow
 import GHC.Generics (Generic)
 import Types
+import Fetch
+import Parse
 
---instance ToRow User where
---toRow = User <$> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field
+newtype UserField = UserField DT.Text deriving (Show)
+
+instance FromRow UserField where
+  fromRow = UserField <$> field
+
+newtype TweetField = TweetField DT.Text deriving (Show)
+
+instance FromRow TweetField where
+  fromRow = TweetField <$> field
+
+-- ##########################################################################################################################################
 
 initDB :: IO Connection
 initDB = do
   conn <- open "database.sqlite"
+  --runRaw conn "COMMIT; PRAGMA foreign_keys = ON"
   execute_
     conn
     "CREATE TABLE IF NOT EXISTS users (\
@@ -29,57 +44,95 @@ initDB = do
     \bio VARCHAR(160)  NULL, \
     \following_count INT DEFAULT NULL, \
     \tweet_count INT DEFAULT NULL, \
-    \listed_count INT DEFAULT NULL, \
     \followers_count INT DEFAULT NULL)"
-  {-
   execute_
     conn
     "CREATE TABLE IF NOT EXISTS tweets (\
-    \tweet_id VARCHAR(20),\
-    \FOREIGN KEY(fk_user_id) REFERENCES users(user_id), \
-    \tweeted_at VARCHAR(40) NOT NULL, \
-    \contents VARCHAR(250) NOT NULL, \
-    \quotes_count INT DEFAULT NULL, \
-    \retweets_count INT DEFAULT NULL, \
-    \likes_count INT DEFAULT NULL, \
-    \replies_count INT DEFAULT NULL)"
-  -}
+    \tweet_id VARCHAR(20) PRIMARY KEY,\
+    \fk_user_id VARCHAR(20),\
+    \tweeted_at VARCHAR(40) NULL, \
+    \contents VARCHAR(250)  NULL, \
+    \quote_count INT DEFAULT NULL, \
+    \retweet_count INT DEFAULT NULL, \
+    \like_count INT DEFAULT NULL, \
+    \reply_count INT DEFAULT NULL, \
+    \FOREIGN KEY('fk_user_id') REFERENCES 'users'('user_id'))"
   return conn
+
+-- ##########################################################################################################################################
 
 saveUser :: Connection -> User -> IO ()
 saveUser conn my_user = do
-  print (dynTypeRep (toDyn my_user))
+  --print (dynTypeRep (toDyn my_user))
   let my_user_id = user_id my_user
   let my_user_metric = user_metrics my_user
-  print my_user_id
-  print my_user_metric
-
---execute conn "INSERT INTO users (user_id, username, name, verified, location, created_at, bio, following_count, tweet_count, listed_count, followers_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)" ("1", "2", "3", "4", "5", "6", "7", 8, 9, 10, 11)
-
-{-
-  results <- queryNamed conn "SELECT * FROM users WHERE user_id=:id AND username=:un"
-  -- Check if user already exists in table
-  if not (null results)
-    then return . head $ results
+  -- Check if User already exists
+  checkUser <- queryNamed conn "SELECT user_id FROM users WHERE user_id = :user_id" [":user_id" := my_user_id] :: IO [UserField]
+  --print $ length checkUser
+  if length checkUser == 0
+    then do
+      -- Add User to Database
+      print "Adding user to database"
+      execute conn "INSERT INTO users (user_id, username, name, verified, location, created_at, bio, following_count, tweet_count, followers_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)" (user_id my_user, username my_user, name my_user, verified my_user, location my_user, created_at my_user, bio my_user, following_count my_user_metric, tweet_count my_user_metric, followers_count my_user_metric)
     else do
-      execute conn "INSERT INTO users (user_id, username, name, verified, location, created_at, bio, following_count, tweet_count, listed_count, followers_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)" (user_id, username, name, verified, created_at, description, following_count, followers_count, like_total, tweet_total)
--}
+      --Update user
+      print "User Already exists, Updataing..."
+      executeNamed conn "UPDATE users SET name = :name WHERE user_id = :user_id" [":name" := name my_user, ":user_id" := user_id my_user]
+
+-- ##########################################################################################################################################
 saveTweet :: Connection -> Tweet -> IO ()
 saveTweet conn my_tweet = do
-  print (dynTypeRep (toDyn my_tweet))
+  --print (dynTypeRep (toDyn my_tweet))
   let my_tweet_id = tweet_id my_tweet
   let my_tweet_metric = tweet_metrics my_tweet
-  print my_tweet_id
-  print my_tweet_metric
+  let my_user_id = fk_user_id my_tweet
+  --print my_tweet_id
+  -- Check if a Tweet already exists
+  checkTweet <- queryNamed conn "SELECT tweet_id FROM tweets WHERE tweet_id = :tweet_id" [":tweet_id" := my_tweet_id] :: IO [TweetField]
+  --print $ length checkTweet
+  if length checkTweet == 0
+    then do
+      -- Add User to Database
+      json <- getUserByID my_user_id --fetch user information
+      case (parseDataUser json) of
+        Left err -> print err
+        Right result -> do
+          let output = raw_user_data result
+          let metrics = user_metrics output
+          let output_metrics = UserMetrics (following_count metrics) (tweet_count metrics) (followers_count metrics)
+          let output_user = User (user_id output) (username output) (name output) (verified output) (location output) (created_at output) (bio output) output_metrics
+          
+          -- Add user to database
+          saveUser conn output_user
+          -- Add Tweet to Database
+          print "Inserting new tweets..."
+          execute conn "INSERT INTO tweets (tweet_id,fk_user_id,tweeted_at, contents, quote_count, retweet_count, like_count, reply_count ) VALUES (?,?, ?, ?, ?, ?, ?, ?)" (tweet_id my_tweet, fk_user_id my_tweet, tweeted_at my_tweet, contents my_tweet, quote_count my_tweet_metric, retweet_count my_tweet_metric, like_count my_tweet_metric, reply_count my_tweet_metric)
+    else do
+      --Update Tweet
+      print "Tweet Already exists, Updating..."
 
-saveTweets :: Connection -> Tweets -> IO ()
-saveTweets conn my_tweets = do
-  print (dynTypeRep (toDyn my_tweets))
+--executeNamed conn "UPDATE tweets SET contents = :contents WHERE tweet_id = :tweet_id" [":contents" := contents my_tweet, ":user_id" := tweet_id my_tweet]
 
---print my_tweets
+saveTweets :: Connection -> [Tweet] -> IO ()
+saveTweets conn = mapM_ (saveTweet conn)
 
---let my_tweet_ids = tweet_id my_tweets
---let my_tweet_metrics = tweet_metrics my_tweets
+-- ##########################################################################################################################################
 
---print my_tweet_id
---print my_tweet_metrics
+querySavedUsers :: Connection -> IO () -- [User]
+querySavedUsers conn = do
+  putStr "Enter username > "
+  userName <- getLine
+  putStrLn $ "Looking for " ++ userName ++ "..."
+
+--let sql = "SELECT * FROM users WHERE username =?"
+--query conn sql [userName]
+
+querySavedTweetsByUser :: Connection -> IO () -- [Tweet]
+querySavedTweetsByUser conn = do
+  putStr "Enter username > "
+  userName <- getLine
+  putStrLn $ "Looking for " ++ userName ++ "'s Tweets..."
+
+--let sql = "SELECT * FROM tweets inner join users on tweets.fk_user_id == users.user_id WHERE username =?"
+--query conn sql [userName]
+-- ##########################################################################################################################################

@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Fetch (getTweet, getUser, searchTweets) where
+module Fetch (getTweet, getUser, searchTweets, getUserByID) where
 
 import Control.Exception (try)
 import Data.Aeson (FromJSON, Value, encode)
@@ -111,7 +111,7 @@ getUser username = do
       let request =
             addRequestHeader "Authorization" bearerToken $
               setRequestSecure True $
-                setRequestQueryString [("user.fields", Just "public_metrics,created_at,location,description")] $
+                setRequestQueryString [("user.fields", Just "public_metrics,created_at,location,description,verified")] $
                   setRequestPort
                     443
                     request'
@@ -125,7 +125,49 @@ getUser username = do
           Prelude.putStrLn "Please ensure you are connected to the internet"
           return "Error"
         Right response -> do
-          --S8.putStrLn $ encode (getResponseBody response :: Value)
+          S8.putStrLn $ (getResponseBody response)
+          --print $ getRequestQueryString request --debug only
+          return $ getResponseBody response
+
+getUserByID :: [Char] -> IO S8.ByteString
+getUserByID id = do
+  let length' = Prelude.length id
+  let id'
+        | not(isNumeric id) = "Invalid user id"
+        | (length' > 20 || length' < 1) = "Invalid length"
+        | otherwise = id
+  --Validate user input
+  case id' of
+    "Invalid user id" -> do
+      Prelude.putStrLn "Please enter a user id containing only of numbers"
+      exitFailure
+      return "Error"
+    "Invalid length" -> do
+      Prelude.putStrLn "Please enter an id between 1 and 20 characters"
+      exitFailure
+      return "Error"
+    otherwise -> do
+      --Prelude.putStrLn "Valid user id"
+      request' <- parseRequest $ "GET https://api.twitter.com/2/users/" ++ id
+
+      let request =
+            addRequestHeader "Authorization" bearerToken $
+              setRequestSecure True $
+                setRequestQueryString [("user.fields", Just "public_metrics,created_at,location,description,verified")] $
+                  setRequestPort
+                    443
+                    request'
+      response <- try $ httpLBS request
+
+      --Ensure request can be run correctly
+      case response of
+        Left e -> do
+          --catch connection errors
+          print (e :: HttpException)
+          Prelude.putStrLn "Please ensure you are connected to the internet"
+          return "Error"
+        Right response -> do
+          --S8.putStrLn $ (getResponseBody response)
           --print $ getRequestQueryString request --debug only
           return $ getResponseBody response
 

@@ -27,7 +27,7 @@ data User = User
   { user_id :: String,
     username :: String,
     name :: String,
-    verified :: Maybe String,
+    verified :: Maybe Bool,
     location :: Maybe String,
     created_at :: String,
     bio :: Maybe String,
@@ -36,10 +36,9 @@ data User = User
   deriving (Eq, Show, Generic)
 
 data UserMetrics = UserMetrics
-  { following_count :: !Int,
-    tweet_count :: !Int,
-    listed_count :: !Int,
-    followers_count :: !Int
+  { following_count :: Int,
+    tweet_count :: Int,
+    followers_count :: Int
   }
   deriving (Eq, Show, Generic)
 
@@ -65,10 +64,10 @@ data Tweet = Tweet
   deriving (Eq, Show, Generic)
 
 data TweetMetrics = TweetMetrics
-  { quotes_count :: Int,
-    retweets_count :: Int,
-    likes_count :: Int,
-    replies_count :: Int
+  { quote_count :: Int,
+    retweet_count :: Int,
+    like_count :: Int,
+    reply_count :: Int
   }
   deriving (Eq, Show, Generic)
 
