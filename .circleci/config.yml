@@ -22,7 +22,7 @@ jobs:
           command: stack --no-terminal install
       - run:
           name: Build Stack targets
-          command: stack buid
+          command: stack build
       - save_cache:
           name: Cache Dependencies
           key: cci-ecs713p-{{ checksum "stack.yaml" }}-{{ checksum "package.yaml" }}
