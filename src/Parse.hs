@@ -9,6 +9,7 @@ module Parse
     parseTweet,
     parseTweets,
     parseTweetMetrics,
+    parseError,
   )
 where
 
@@ -23,6 +24,23 @@ import Distribution.SPDX (LicenseId (JSON))
 import Distribution.Simple (License (BSD2))
 import GHC.Generics
 import Types
+
+-- ##########################################################################################################################################
+-- Parse Error
+renameFieldError "error_data" = "detail"
+renameFieldError other = other
+
+customOptionsError :: Options
+customOptionsError =
+  defaultOptions
+    { fieldLabelModifier = renameFieldError
+    }
+
+instance FromJSON Error where
+  parseJSON = JSON.genericParseJSON customOptionsError
+
+parseError :: L8.ByteString -> Either String Error
+parseError json = eitherDecode json :: Either String Error
 
 -- ##########################################################################################################################################
 

@@ -9,6 +9,7 @@ module Types
     Tweet (..),
     Tweets (..),
     TweetMetrics (..),
+    Error (..),
   )
 where
 
@@ -16,6 +17,10 @@ import Data.Aeson
 import GHC.Generics (Generic)
 
 -- ##########################################################################################################################################
+newtype Error = Error
+  { error_data :: String
+  }
+  deriving (Eq, Show, Generic)
 
 newtype RawUser = RawUser
   { raw_user_data :: User
